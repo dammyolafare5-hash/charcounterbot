@@ -7,9 +7,11 @@ import os
 import re
 import io
 import string
+import logging
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 from collections import Counter
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -19,6 +21,14 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
+
+# ==================== LOGGING ====================
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # ==================== CONFIGURATION ====================
 
@@ -44,14 +54,14 @@ if not BOT_TOKEN:
 
 # If still no token, show error
 if not BOT_TOKEN:
-    print("=" * 60)
-    print("❌ ERROR: No Telegram Bot Token found!")
-    print("=" * 60)
-    print("Please set one of these environment variables:")
-    print("  - TELEGRAM_TOKEN")
-    print("  - TELEGRAM_BOT_TOKEN")
-    print("  - BOT_TOKEN")
-    print("=" * 60)
+    logger.error("=" * 60)
+    logger.error("❌ ERROR: No Telegram Bot Token found!")
+    logger.error("=" * 60)
+    logger.error("Please set one of these environment variables:")
+    logger.error("  - TELEGRAM_TOKEN")
+    logger.error("  - TELEGRAM_BOT_TOKEN")
+    logger.error("  - BOT_TOKEN")
+    logger.error("=" * 60)
     raise ValueError("❌ No Telegram Bot Token found in environment variables!")
 
 BOT_NAME = "Character Counter Bot"
@@ -70,6 +80,7 @@ DIGITS = set(string.digits)
 user_data: Dict[int, Dict] = {}
 
 def get_user_data(user_id: int) -> Dict:
+    """Get or create user data"""
     if user_id not in user_data:
         user_data[user_id] = {
             "history": [],
@@ -82,6 +93,7 @@ def get_user_data(user_id: int) -> Dict:
 # ==================== KEYBOARDS ====================
 
 def get_main_keyboard():
+    """Create main menu keyboard"""
     keyboard = [
         [InlineKeyboardButton("🔤 Analyze Text", callback_data="analyze")],
         [InlineKeyboardButton("📊 Letter Breakdown", callback_data="breakdown")],
@@ -92,8 +104,9 @@ def get_main_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 def get_analysis_options_keyboard():
+    """Create analysis options keyboard"""
     keyboard = [
-        [InlineKeyboardButton("🔤 Full Character Analysis", callback_data="full_analysis")],
+        [InlineKeyboardButton("🔤 Full Analysis", callback_data="full_analysis")],
         [InlineKeyboardButton("📊 Letter Breakdown", callback_data="letter_breakdown")],
         [InlineKeyboardButton("📈 Character Frequency", callback_data="char_frequency")],
         [InlineKeyboardButton("📋 Export Report", callback_data="export_report")],
@@ -249,7 +262,7 @@ def format_analysis_result(result: Dict) -> str:
     
     return text
 
-def create_character_chart(char_freq: List[Tuple[str, int]]) -> bytes:
+def create_character_chart(char_freq: List[Tuple[str, int]]) -> Optional[bytes]:
     """Create a visual character frequency chart"""
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -286,7 +299,7 @@ def create_character_chart(char_freq: List[Tuple[str, int]]) -> bytes:
         return img_bytes.getvalue()
         
     except Exception as e:
-        print(f"Chart error: {e}")
+        logger.error(f"Chart error: {e}")
         return None
 
 def create_export_report(text: str, result: Dict) -> bytes:
@@ -355,6 +368,7 @@ Punctuation:                {result['punctuation_percentage']:.1f}%
 # ==================== COMMAND HANDLERS ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /start command"""
     user = update.effective_user
     user_id = str(user.id)
     data = get_user_data(user_id)
@@ -383,6 +397,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /help command"""
     help_text = (
         f"📖 **{BOT_NAME} User Guide**\n\n"
         "**🔤 What I Can Analyze:**\n"
@@ -410,6 +425,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /stats command"""
     user_id = str(update.effective_user.id)
     data = get_user_data(user_id)
     
@@ -429,6 +445,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== CALLBACK HANDLERS ====================
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button presses"""
     query = update.callback_query
     await query.answer()
     
@@ -796,7 +813,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
     except Exception as e:
-        print(f"Document error: {e}")
+        logger.error(f"Document error: {e}")
         await update.message.reply_text(
             "❌ Error processing the file. Please try again.",
             reply_markup=get_main_keyboard()
@@ -805,17 +822,19 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== MAIN ====================
 
 async def post_init(application):
-    print("=" * 60)
-    print(f"🔤 {BOT_NAME} Started Successfully!")
-    print(f"🤖 Username: @{BOT_USERNAME}")
-    print(f"📦 Version: {BOT_VERSION}")
-    print("=" * 60)
-    print("✅ Bot is ready to analyze characters!")
-    print("=" * 60)
+    """Post initialization"""
+    logger.info("=" * 60)
+    logger.info(f"🔤 {BOT_NAME} Started Successfully!")
+    logger.info(f"🤖 Username: @{BOT_USERNAME}")
+    logger.info(f"📦 Version: {BOT_VERSION}")
+    logger.info("=" * 60)
+    logger.info("✅ Bot is ready to analyze characters!")
+    logger.info("=" * 60)
 
 def main():
-    print(f"🚀 Starting {BOT_NAME}...")
-    print(f"📡 Using token: {BOT_TOKEN[:15]}...{BOT_TOKEN[-5:]}")
+    """Main entry point"""
+    logger.info(f"🚀 Starting {BOT_NAME}...")
+    logger.info(f"📡 Using token: {BOT_TOKEN[:15]}...{BOT_TOKEN[-5:]}")
     
     application = ApplicationBuilder() \
         .token(BOT_TOKEN) \
@@ -834,7 +853,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     
-    print("✅ Bot is polling for updates...")
+    logger.info("✅ Bot is polling for updates...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
